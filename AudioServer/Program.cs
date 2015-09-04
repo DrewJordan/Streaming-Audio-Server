@@ -1,13 +1,8 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.IO;
-using System.Linq;
-using System.Media;
 using System.Net;
 using System.Net.Sockets;
-using System.Security.Cryptography;
 using System.Text;
-using System.Threading.Tasks;
 using NAudio.Wave;
 
 namespace AudioServer
@@ -42,8 +37,10 @@ namespace AudioServer
                     }
                     NetworkStream networkStream = clientSocket.GetStream();
                     byte[] bytesFrom = new byte[65536];
-                    networkStream.Read(bytesFrom, 0, (int)clientSocket.ReceiveBufferSize);
-                    string dataFromClient = System.Text.Encoding.ASCII.GetString(bytesFrom);
+                    int read = networkStream.Read(bytesFrom, 0, (int)clientSocket.ReceiveBufferSize);
+                    if (read == 0)
+                        continue;
+                    string dataFromClient = Encoding.ASCII.GetString(bytesFrom);
                     dataFromClient = dataFromClient.Substring(0, dataFromClient.IndexOf("$"));
                     Console.WriteLine(" >> Data from client - " + dataFromClient);
                     //string response = HandleRequest(dataFromClient);
@@ -77,6 +74,11 @@ namespace AudioServer
                     return GetLengthOfFile(request.Substring(2));
             }
 
+            return null;
+        }
+
+        private static byte[] CloseConnection(string substring)
+        {
             return null;
         }
 
@@ -149,7 +151,7 @@ namespace AudioServer
 
         private static byte[] ListDirectory(string directory)
         {
-            var fileList = Directory.EnumerateFiles(directory);
+            var fileList = Directory.EnumerateFileSystemEntries(directory);
 
             StringBuilder sb = new StringBuilder();
 
@@ -158,7 +160,8 @@ namespace AudioServer
                 sb.Append(file + ";");
             }
 
-            return Encoding.ASCII.GetBytes(sb.ToString());
+            var x = Encoding.ASCII.GetBytes(sb.ToString());
+            return x;
         }
     }
 }
