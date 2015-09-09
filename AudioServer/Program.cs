@@ -1,5 +1,8 @@
 ﻿using System;
+using System.Collections;
+using System.Collections.Generic;
 using System.IO;
+using System.Media;
 using System.Net;
 using System.Net.Sockets;
 using System.Text;
@@ -77,11 +80,6 @@ namespace AudioServer
             return null;
         }
 
-        private static byte[] CloseConnection(string substring)
-        {
-            return null;
-        }
-
         private static byte[] GetLengthOfFile(string substring)
         {
             Stream inputStream = new MemoryStream(File.ReadAllBytes(substring));
@@ -103,32 +101,25 @@ namespace AudioServer
             //return File.ReadAllBytes(substring);
             Console.WriteLine("Playing...");
             Stream inputStream = new MemoryStream(File.ReadAllBytes(substring));
+            inputStream.Seek(0, SeekOrigin.Begin);
             Stream outputStream = new MemoryStream();
-            byte[] bytes;
+            byte[] bytes = new byte[inputStream.Length];
             string wavFile = @"C:\temp\tempWav.wav";
-            //using (WaveStream waveStream = WaveFormatConversionStream.CreatePcmStream(new Mp3FileReader(inputStream)))
-            //using (WaveFileWriter waveFileWriter = new WaveFileWriter(outputStream, waveStream.WaveFormat))
-            //{
-            //    bytes = new byte[waveStream.Length];
-            //    waveStream.Read(bytes, 0, (int)waveStream.Length);
-            //    waveFileWriter.WriteData(bytes, 0, bytes.Length);
-            //    waveFileWriter.Flush();
-                
-            //}
 
-            //step 1: read in the MP3 file with Mp3FileReader.
-            using (Mp3FileReader reader = new Mp3FileReader(substring))
+
+            using (var reader = new Mp3FileReader(substring))
             {
-
-                //step 2: get wave stream with CreatePcmStream method.
-                using (WaveStream pcmStream = WaveFormatConversionStream.CreatePcmStream(reader))
+                using (var writer = new WaveFileWriter(wavFile, new WaveFormat()))
                 {
-
-                    //step 3: write wave data into file with WaveFileWriter.
-                    WaveFileWriter.CreateWaveFile(wavFile, pcmStream);
+                    var buf = new byte[4096];
+                    for (; ; )
+                    {
+                        var cnt = reader.Read(buf, 0, buf.Length);
+                        if (cnt == 0) break;
+                        writer.Write(buf, 0, cnt);
+                    }
                 }
             }
-
 
             //SoundPlayer p = new SoundPlayer(wavFile);
             //p.Play();
@@ -151,8 +142,15 @@ namespace AudioServer
 
         private static byte[] ListDirectory(string directory)
         {
-            var fileList = Directory.EnumerateFileSystemEntries(directory);
-
+            IEnumerable<string> fileList;
+            try
+            {
+                fileList = Directory.EnumerateFileSystemEntries(directory);
+            }
+            catch (AccessViolationException ex)
+            {
+               return Encoding.UTF8.GetBytes("ex" + ex.Message);
+            }
             StringBuilder sb = new StringBuilder();
 
             foreach (var file in fileList)
