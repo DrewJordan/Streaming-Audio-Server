@@ -12,14 +12,16 @@ namespace AudioServer
 {
     class Program
     {
+        static int exceptioncount = 0;
+        static int lastcount = 0;
         static void Main(string[] args)
         {
-            TcpListener serverSocket = new TcpListener(IPAddress.Loopback, 49133);
+            TcpListener serverSocket = new TcpListener(IPAddress.Any, 49133);
             int requestCount = 0;
-            TcpClient clientSocket = default(TcpClient);
+            TcpClient client = default(TcpClient);
             serverSocket.Start();
             Console.WriteLine(" >> Server Started");
-            clientSocket = serverSocket.AcceptTcpClient();
+            client = serverSocket.AcceptTcpClient();
             Console.WriteLine(" >> Accept connection from client");
             requestCount = 0;
 
@@ -27,20 +29,27 @@ namespace AudioServer
             {
                 try
                 {
+                    if (exceptioncount > lastcount)
+                    {
+                        //client.GetStream().Close();
+                        client.Close();
+                        lastcount++;
+                    }
                     requestCount = requestCount + 1;
-                    if (!clientSocket.Connected)
+                    if (!client.Connected)
                     {
                         if (serverSocket.Pending())
                         {
-                            clientSocket = serverSocket.AcceptTcpClient();
+                            client = serverSocket.AcceptTcpClient();
                             Console.WriteLine(" >> Accept connection from client");
                         }
                         else
                             continue;
                     }
-                    NetworkStream networkStream = clientSocket.GetStream();
+                    //if (client.)
+                    NetworkStream networkStream = client.GetStream();
                     byte[] bytesFrom = new byte[65536];
-                    int read = networkStream.Read(bytesFrom, 0, (int)clientSocket.ReceiveBufferSize);
+                    int read = networkStream.Read(bytesFrom, 0, (int)client.ReceiveBufferSize);
                     if (read == 0)
                         continue;
                     string dataFromClient = Encoding.ASCII.GetString(bytesFrom);
@@ -56,10 +65,11 @@ namespace AudioServer
                 catch (Exception ex)
                 {
                     Console.WriteLine(ex.ToString());
+                    exceptioncount++;
                 }
             }
 
-            clientSocket.Close();
+            client.Close();
             serverSocket.Stop();
             Console.WriteLine(" >> exit");
             Console.ReadLine();
@@ -104,8 +114,14 @@ namespace AudioServer
             inputStream.Seek(0, SeekOrigin.Begin);
             Stream outputStream = new MemoryStream();
             byte[] bytes = new byte[inputStream.Length];
+            string path = @"C:\temp";
             string wavFile = @"C:\temp\tempWav.wav";
 
+            if (!Directory.Exists(path))
+                Directory.CreateDirectory(path);
+
+            if (File.Exists(wavFile))
+                File.Delete(wavFile);
 
             using (var reader = new Mp3FileReader(substring))
             {
